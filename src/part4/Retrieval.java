@@ -98,8 +98,7 @@ public class Retrieval {
 				}
 			}
 	    }
-//	    System.out.println(andVocabsLen);
-//	    System.out.println(andMap);
+
 	    HashMap<String, Integer> FinalMap = new HashMap<String, Integer>();
 	    for (String key : andMap.keySet()) {
 	    	if (andMap.get(key) == andVocabsLen) {
@@ -113,15 +112,15 @@ public class Retrieval {
 	    // Key  : fileName
 	    // Value: TermMember
 	    HashMap<String, TermMember> tValueMap = new HashMap<String, TermMember>();
+	    HashMap<String, Double>       weights = new HashMap<String, Double>();
 	    // Each vocab we search
 	    for (String vocab : andVocabs) {
-//	    	System.out.println();
-//	    	System.out.println(vocab);
-//	    	System.out.println("------------------------");
+	    	System.out.println();
+	    	System.out.println(vocab);
+	    	System.out.println("------------------------");
 	    	// Look up each vocab in each file.
 	    	for (TermMember termMember : map.get(vocab).getTermMembers()) {
 	    		// Look up whether the file in FinalMap or not.
-	    		// System.out.println(termMember.getFileName());
 	    		for (String key : FinalMap.keySet()) {
 	    		
 	    			if (termMember.getFileName().equals(key)) {
@@ -134,41 +133,26 @@ public class Retrieval {
 	    					tmp.appendOffset(termMember.getOffset());
 	    					tValueMap.replace(key, tmp);
 	    				}
-//	    				System.out.println(termMember.getFileName());
-//	    				System.out.println(termMember.getTermFreq());
-//	    				System.out.println(termMember.getOffset());
-//	    				System.out.println(tValueMap.get(key).getFileName());
-//	    				System.out.println(tValueMap.get(key).getTermFreq());
-//	    				System.out.println(tValueMap.get(key).getOffset());
-//	    				System.out.println("------------------------");
+	    				
+	    				if (weights.get(key) == null) {
+	    					weights.put(key, map.get(vocab).getWeight(key));
+	    				} else {
+	    					weights.replace(key, weights.get(key) + map.get(vocab).getWeight(key));
+	    				}
+
 	    			}
 	    			
 	    		}
 	    	}
 	    }
-	    // System.out.println(tValueMap);
-	    System.out.println();
 	    
-	    // Build TermMember list
-	    ArrayList<TermMember> termMembers = new ArrayList<TermMember>();
-	    for (TermMember tm : tValueMap.values()) {
-	    	termMembers.add(tm);
-	    }
+	    // Build ordered {weight:termMember} pair
+	    TreeMap<Double, TermMember> pairMap = createPairMap(weights, tValueMap);
 	    
-	    // Retrieve tValue
-	    TableValue tValue = new TableValue(termMembers.size(), termMembers);
+	    // Change order into Desc
+	    NavigableMap<Double, TermMember> nmap = pairMap.descendingMap();
 	    
-
-        // Weight = TF.IDF
-        ArrayList<Double> weights = tValue.getWeights();
-        
-        
-        // Build ordered {weight:termMember} pair
-        TreeMap<Double, TermMember> pairMap = createPairMap(weights, tValue.getTermMembers());
-
-        // Change order into Desc
-        NavigableMap<Double, TermMember> nmap = pairMap.descendingMap();
-        
+	    
         // Results
         int Len = (nmap.size() < MAX) ? nmap.size() : MAX;
         for (int i = 0; i < Len; i++) {
@@ -185,7 +169,7 @@ public class Retrieval {
         	len = entry.getValue().getOffset().size();
         	for (int j = 0; j < len; j++) {
         		// Jump to that position in O(1);
-            	ra.seek(entry.getValue().getOffset().get(j));
+            	ra.seek(entry.getValue().getOffset().get(j)-5);
             	System.out.println(ra.readLine());
         	}
         	
@@ -269,12 +253,12 @@ public class Retrieval {
     	return (double)len;
     }
 
-    public static TreeMap<Double, TermMember> createPairMap(ArrayList<Double> weights, ArrayList<TermMember> termMembers) {
+    public static TreeMap<Double, TermMember> createPairMap(HashMap<String, Double> weights, HashMap<String, TermMember> tValueMap) {
     	TreeMap<Double, TermMember> pairMap = new TreeMap<Double, TermMember>();
     	
-    	int len = weights.size();
-    	for (int i = 0; i < len; i++) {
-    		pairMap.put(weights.get(i), termMembers.get(i));
+    	
+    	for (String vocab : weights.keySet()) {
+    		pairMap.put(weights.get(vocab), tValueMap.get(vocab));
     	}
     	return pairMap;
     }
